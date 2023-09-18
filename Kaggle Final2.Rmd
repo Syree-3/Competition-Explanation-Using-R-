@@ -1,0 +1,84 @@
+---
+title: "Kaggle 2"
+author: "Syreeta"
+date: "2023-01-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+# Read in the training and testing data
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+
+# Feature Engineering
+# Example: Extract deck information from the Cabin column
+train$Deck <- substr(train$Cabin, 1, 1)
+test$Deck <- substr(test$Cabin, 1, 1)
+
+# Missing Value Handling
+# Example: Impute missing numerical values with the median
+median_age <- median(train$Age, na.rm = TRUE)
+train$Age[is.na(train$Age)] <- median_age
+test$Age[is.na(test$Age)] <- median_age
+
+# Example: Impute missing categorical values with the mode
+mode_embarked <- names(sort(table(train$Embarked), decreasing = TRUE)[1])
+train$Embarked[is.na(train$Embarked)] <- mode_embarked
+test$Embarked[is.na(test$Embarked)] <- mode_embarked
+
+# Example: Create a new indicator variable for missing values in the Cabin column
+train$CabinMissing <- ifelse(is.na(train$Cabin), 1, 0)
+test$CabinMissing <- ifelse(is.na(test$Cabin), 1, 0)
+
+# Split the training data into a training set and a validation set
+set.seed(123)
+split_index <- createDataPartition(train$Transported, p = 0.8, list = FALSE)
+train_set <- train[split_index, ]
+validation_set <- train[-split_index, ]
+
+# Convert the response variable "Transported" to a factor
+train_set$Transported <- as.factor(train_set$Transported)
+validation_set$Transported <- as.factor(validation_set$Transported)
+
+# Remove rows with missing values in any column for both training and validation sets
+train_set <- na.omit(train_set)
+validation_set <- na.omit(validation_set)
+
+# Build a random forest model on the training set using all the predictor variables
+model <- randomForest(Transported ~ ., data = train_set)
+
+# Hyperparameter Tuning (Add your hyperparameter tuning code here)
+
+# Generate predictions on the validation set using the trained model
+predictions <- predict(model, newdata = validation_set)
+
+# Calculate the accuracy of the model
+accuracy <- mean(predictions == validation_set$Transported)
+#print(accuracy)
+
+# Calculate additional performance metrics, such as precision, recall, and F1-score
+conf_matrix <- confusionMatrix(predictions, validation_set$Transported)
+
+# Generate predictions on the test set using the trained model
+test_predictions <- predict(model, newdata = test)
+
+# Create a data frame with PassengerId and Transported columns
+submission <- data.frame(PassengerId = test$PassengerId, Transported = as.character(test_predictions))
+
+# Write predictions to CSV file
+write.csv(submission, "test_predictions2.csv", row.names = FALSE, quote = FALSE)
+
+# Check the first few rows of the formatted predictions
+head(submission)
+
+```
+
